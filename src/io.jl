@@ -6,6 +6,7 @@ Warning: Very ad hoc.
 
 using CSV
 using DataFrames
+using DataFramesMeta
 using Dates
 using NCDatasets
 using ZipArchives
@@ -71,8 +72,63 @@ function get_zipped_icechart_dataset(year::Int)
 end
 
 
-function get_icechart_dataset(year::Int)
-    dsfile = DATAPATH * "icecharts/icecharts$(year).nc"
-    ds = NCDataset(dsfile, "r")
-    return ds
+"""
+    get_era5_winds(df, ds)
+
+Get interpolated winds and air temperature from a NetCDF file with ERA5 data.
+"""
+function get_era5_winds(df0::AbstractDataFrame, ds::NCDataset)
+    df = copy(df0)
+    t = Vector{Union{Float64, Missing}}(undef, nrow(df))
+    u = Vector{Union{Float64, Missing}}(undef, nrow(df))
+    v = Vector{Union{Float64, Missing}}(undef, nrow(df))
+    for i = 1:nrow(df)
+        (i % 5000 == 0) && println("$i/$(nrow(df)) done")
+        row = view(df, i, :)
+        t[i], u[i], v[i] = interp_val([:t, :u, :v], row[:lon], row[:lat], row[:timestamp], ds)
+    end
+    df[!, :t_air] = t .- 273.15;
+    df[!, :u_wind] = u;
+    df[!, :v_wind] = v;
+    @rtransform!(df, :wind_speed = sqrt(:u_wind^2 + :v_wind^2))
+    @rtransform!(df, :wind_direction = uv2dir(:u_wind, :v_wind))
+    @rtransform!(df, :wind_factor = :speed / :wind_speed)
+    return df
 end
+export get_era5_winds
+
+
+const ICECHART_COLS = (;
+    :sitype => :kFmiIceType,
+    :siconc => :kFmiIceConcentration,
+    :sithic => :kFmiIceThickness,
+    :sithic_min => :kFmiIceMinThickness,
+    :sithic_max => :kFmiIceMaxThickness,
+    :siridging => :kFmiIceDegreeOfRidging,
+    )
+
+
+"""
+    get_fmi_ice(df)
+
+Get closest values for sea ice properties in ice charts.
+"""
+function get_fmi_ice(df0::AbstractDataFrame, filename_f::Function)
+    df = transform(df0, :timestamp => ByRow(year) => :year)
+    for k in keys(ICECHART_COLS)
+        df[!, k] = Vector{Union{Float64, Missing}}(undef, nrow(df))
+    end
+
+    for d in groupby(df, :year)
+        y = first(d)[:year]
+        println("Processing icecharts for $y...")
+        ds = NCDataset(filename_f(y), "r")
+        for row in eachrow(d)
+            row[[keys(ICECHART_COLS)...]] .= closest_val(values(ICECHART_COLS), row, ds)
+        end
+        close(ds)
+    end
+
+    return select(df, Not(:year))
+end
+export get_fmi_ice
