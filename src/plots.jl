@@ -7,6 +7,10 @@ import ArchGDAL
 import GADM
 
 
+const LATLIMS = (63, 66)
+const LONLIMS = (21, 25.1)
+
+
 "Coastline for Bay of Bothnia"
 function bob_coast()
     fin0 = GADM.get("FIN"; depth=0) |> DataFrame;
@@ -17,12 +21,19 @@ function bob_coast()
 end
 
 
-function plot_trajectories(df::AbstractDataFrame; color=:blue)
-    fig = Figure(size=(600, 500))
+function plot_bob_coast(;figsize=(600, 500), xlims=LONLIMS, ylims=LATLIMS)
+    fig = Figure(size=figsize)
     ga = GeoAxis(fig[1, 1]; dest = "+proj=natearth", title = "")
-    # xlims!(lonlims...)
-    # ylims!(latlims...)
+    xlims!(xlims...)
+    ylims!(ylims...)
     poly!(ga, bob_coast(), color=:grey)
+    return (fig, ga)
+end
+export plot_bob_coast
+
+
+function plot_trajectories(df::AbstractDataFrame; color=:blue)
+    fig, ga = plot_bob_coast()
     plt = scatter!(ga, df.lon, df.lat, color=color, markersize=5, alpha=1)
     # Colorbar(fig[1, 2], plt, label="Drift speed [m/s]")
     # df2 = combine(groupby(df, [^(:JP), ^(:winter)]), first)
