@@ -44,7 +44,7 @@ end
 
 
 @testset "buoy_calculations.jl" begin
-    @test IceDrifters.distance(-20., 20., 0., 180.) ≈ π * 6378100
+    @test IceDrifters.get_distance(-20., 20., 0., 180.) ≈ π * 6378100
     @test IceDrifters.bearing(0, 10, 0, 0) ≈ 0
     @test IceDrifters.bearing(10, 0, 0, 0) ≈ 180
     @test IceDrifters.bearing(0., 0.1, 0., 0.1) ≈ 45 atol=1e-3

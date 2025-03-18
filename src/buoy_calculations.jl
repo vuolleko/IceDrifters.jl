@@ -13,8 +13,8 @@ Coordinates should be given in degrees.
 
 https://en.wikipedia.org/wiki/Haversine_formula
 """
-function distance(lat_1::T, lat_2::T, lon_1::T, lon_2::T;
-                   radius::T=6378.1e3) where T <: Real
+function get_distance(lat_1::T, lat_2::T, lon_1::T, lon_2::T;
+                   radius::Real=6378.1e3) where T <: Real
     term1 = sind((lat_2 - lat_1) / 2.0)^2
     term2 = sind((lon_2 - lon_1) / 2.0)^2 * cosd(lat_1) * cosd(lat_2)
     d = 2.0 * radius * asin(sqrt(term1 + term2))
@@ -22,14 +22,14 @@ function distance(lat_1::T, lat_2::T, lon_1::T, lon_2::T;
 end
 
 
-function distance(row1::DataFrameRow, row2::DataFrameRow)
-    d = distance(row1[:lat], row2[:lat], row1[:lon], row2[:lon])
+function get_distance(row1::DataFrameRow, row2::DataFrameRow)
+    d = get_distance(row1[:lat], row2[:lat], row1[:lon], row2[:lon])
     return d
 end
 
 
-function distance(df::AbstractDataFrame)
-    d = [distance(df[i, :], df[i+1, :]) for i=1:size(df, 1)-1]
+function get_distance(df::AbstractDataFrame)
+    d = [get_distance(df[i, :], df[i+1, :]) for i=1:size(df, 1)-1]
     return d
 end
 
@@ -64,7 +64,7 @@ function distspeeds1(df0::AbstractDataFrame; remove_gaps=false)
     @assert length(unique(df0.JP)) == 1
     @assert issorted(df0.timestamp)
     df = copy(df0[2:end, :])
-    df[!, :distance] = distance(df0)
+    df[!, :distance] = get_distance(df0)
     dt = Second.(diff(df0.timestamp))
     df[!, :speed] = df[!, :distance] ./ Dates.value.(dt)  # [m/s]
     df[!, :bearing] = bearing(df0)
