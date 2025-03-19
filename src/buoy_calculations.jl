@@ -1,7 +1,10 @@
-using DataFrames
 """
 Various calculations for preprocessing.
 """
+
+
+using DataFrames
+using Dates
 
 
 """
@@ -127,4 +130,44 @@ function find_suspicious(df::AbstractDataFrame)
         j += 1
     end
     return inds_del
+end
+
+
+"""
+    get_dts1(df)
+
+Find distribution of timesteps between observations for one buoy.
+"""
+function get_dts1(df1::AbstractDataFrame)
+    @assert length(unique(df1.JP)) == 1
+    @assert length(unique(df1.winter)) == 1
+
+    moves = cumsum(df1.distance .> 0)
+    dts = Hour[]
+    for m in unique(moves)
+        ind1 = findfirst(moves .== m)
+        ind2 = findlast(moves .== m) + 1
+        (ind2 > nrow(df1)) && continue
+        dt = df1[ind2, :timestamp] - df1[ind1, :timestamp]  # [ms]
+        push!(dts, Hour(dt.value ÷ 3600000))
+    end
+    return sort(Dict(dt1 => sum(dt1 .== dts) / length(dts) for dt1 in unique(dts)))
+end
+
+
+"""
+    get_dts(df)
+
+Find distributions of timesteps between observed movement.
+
+Some buoys update their position (GPS fix) less often than they report it.
+Position for a given timestamp can be wrong. True update frequency can be
+inferred from the distribution of timestemps between observed movement.
+"""
+function get_dts(df::AbstractDataFrame)
+    dt_df = combine(
+        groupby(df, [:winter, :JP]),
+        get_dts1)
+    transform!(dt_df, :x1 => ByRow(argmax) => :most_common)
+    return dt_df
 end
