@@ -27,6 +27,8 @@ function get_jp(filename::AbstractString)
     rename!(df0, Dict([s => strip(s) for s in names(df0)]))
     if "GPSDELAY" in names(df0)
         subset!(df0, :GPSDELAY => ByRow(d -> d < 6))  # allow 5 min delay
+    elseif "TSLF" in names(df0)
+        subset!(df0, :TSLF => ByRow(d -> d < 6))  # allow 5 min delay
     end
     df = select(df0,
         [:YEAR, :MONTH, :DAY, :HOUR, :MIN] =>
