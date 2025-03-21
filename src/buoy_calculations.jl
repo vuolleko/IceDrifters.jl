@@ -171,3 +171,97 @@ function get_dts(df::AbstractDataFrame)
     transform!(dt_df, :x1 => ByRow(argmax) => :most_common)
     return dt_df
 end
+
+
+"""
+    lonlat2gid(lon, lat)
+
+ Assign each point into a 0.5x0.5 degree grid using an integer id.
+ """
+lonlat2gid(lon::Real, lat::Real) = floor.(Int, lat * 2) * 100 + floor.(Int, lon * 2)
+
+
+"""
+    gid2lonlat(x)
+
+Convert the 0.5x0.5 degree cell id back to (lon, lat).
+"""
+function gid2lonlat(x::Int)
+    xs = string(x)
+    return (parse(Float64, xs[4:5]) / 2 + 0.25, parse(Float64, xs[1:3]) / 2 + 0.25)
+end
+
+
+struct Strides
+    x::Vector{<:Real}  # momentary positions
+    y::Vector{<:Real}
+    sithic::Vector{<:Real}
+
+    distances::Vector{<:Real}  # cumulative for each stride
+    durations::Vector{Hour}
+    doy::Vector{Int}  # final for each stride
+
+    durations_all::Ref{Hour}  # for all movements
+    strides::Dict{Int, Int}  # start ind, length
+
+    Strides() = new(Real[], Real[], Real[], Real[], Hour[], Int[], Hour(0), Dict{Int, Int}())
+end
+
+
+"""
+    get_strides(df; angle_max, speed_min, duration_min)
+
+Perform persistence analysis on data.
+"""
+function get_strides(df::AbstractDataFrame;
+                     angle_max::Real=30,
+                     speed_min::Real=0.0,
+                     duration_min::Hour=Hour(3),
+                     )::Strides
+    s = Strides()
+    for jdf in groupby(df, [:JP, :winter])
+        x1 = 0.0
+        y1 = 0.0
+        stride_ind1 = 1
+        distance = 0.0
+        duration = Hour(0)
+        prev = first(jdf)
+        for (ind, row) in enumerate(eachrow(jdf))
+            Δθ = acosd(clamp(
+                    (normalize([row.u row.v]) * normalize([prev.u, prev.v]))[1],
+                    -1, 1))
+            Δt = row.timestamp - prev.timestamp
+
+            if (Δt > Day(1)) | (Δθ > angle_max) | (ind == nrow(jdf)) | (row.speed < speed_min)
+                x1 = 0.0
+                y1 = 0.0
+                push!(s.x, NaN, 0)  # discontinuously back to 0
+                push!(s.y, NaN, 0)
+                push!(s.sithic, 1, 1)
+                stridelen = ind - 1 - stride_ind1
+                (stridelen > 8) && (s.strides[stride_ind1] = stridelen)
+                stride_ind1 = ind - 1
+                if duration >= duration_min  # record at stride end
+                    push!(s.durations, duration)
+                    push!(s.distances, distance)
+                    push!(s.doy, row.doy)
+                end
+                duration = Hour(0)
+                distance = 0.0
+
+            else  # accumulate only if no reset
+                duration += Hour(Δt - mod(Δt, 3600e3))
+                distance += row.distance
+                x1 += row.distance * sind(row.bearing)
+                y1 += row.distance * cosd(row.bearing)
+            end
+            s.durations_all[] += Hour(Δt - mod(Δt, 3600e3))
+            push!(s.x, x1)
+            push!(s.y, y1)
+            push!(s.sithic, row.sithic)
+            prev = row
+        end
+    end
+    return s
+end
+export get_strides

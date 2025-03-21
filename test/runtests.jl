@@ -51,4 +51,8 @@ end
     @test IceDrifters.bearing(0., -0.1, 0., -0.1) ≈ 225 atol=1e-3
     @test IceDrifters.uv2dir(1, 1) ≈ 45 atol=1e-3
     @test IceDrifters.uv2dir(-1, -1) ≈ 225 atol=1e-3
+    @test IceDrifters.lonlat2gid(10, 60) == 12020
+    @test IceDrifters.gid2lonlat(IceDrifters.lonlat2gid(34.2, 69.2)) == (34.25, 69.25)
+    @test IceDrifters.gid2lonlat(IceDrifters.lonlat2gid(34., 69.)) == (34.25, 69.25)
+    @test IceDrifters.gid2lonlat(IceDrifters.lonlat2gid(31.49, 69.5)) == (31.25, 69.75)
 end
