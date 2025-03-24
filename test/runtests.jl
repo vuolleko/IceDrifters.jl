@@ -1,3 +1,4 @@
+using DataFrames
 using Dates
 using IceDrifters
 using Test
@@ -55,4 +56,19 @@ end
     @test IceDrifters.gid2lonlat(IceDrifters.lonlat2gid(34.2, 69.2)) == (34.25, 69.25)
     @test IceDrifters.gid2lonlat(IceDrifters.lonlat2gid(34., 69.)) == (34.25, 69.25)
     @test IceDrifters.gid2lonlat(IceDrifters.lonlat2gid(31.49, 69.5)) == (31.25, 69.75)
+end
+
+
+@testset "deform.jl" begin
+    import IceDrifters: isposorient, Triangle, istoosharp, angles
+    df = DataFrame(x=[2., 3., 1., 2.], y=[2., 0., 1., 1.9])
+    tri2 = Triangle(df[[1,3,2], :])
+    tri1 = Triangle(df[[1,2,3], :])
+    tri3 = Triangle(df[[1,2,4], :])
+
+    @test !isposorient(tri1)
+    @test isposorient(tri2)
+    @test !istoosharp(tri1, 15)
+    @test istoosharp(tri3, 15)
+    @test isapprox(sum(angles(tri1)), 180)
 end

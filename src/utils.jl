@@ -1,6 +1,11 @@
 using DataFrames
 using NCDatasets
+using Proj
 using Statistics
+
+
+coordtrans() = Proj.Transformation("EPSG:4326", "EPSG:25834", always_xy=true)
+export coordtrans
 
 
 """
