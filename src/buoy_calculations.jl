@@ -171,6 +171,7 @@ function get_dts(df::AbstractDataFrame)
     transform!(dt_df, :x1 => ByRow(argmax) => :most_common)
     return dt_df
 end
+export get_dts
 
 
 """
