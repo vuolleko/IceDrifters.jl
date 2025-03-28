@@ -56,6 +56,7 @@ end
 
 "Calculate direction from velocity."
 uv2dir(u, v) = mod(360 - (passmissing(atand)(v, u) - 90), 360)
+export uv2dir
 
 
 """
@@ -180,6 +181,7 @@ export get_dts
  Assign each point into a 0.5x0.5 degree grid using an integer id.
  """
 lonlat2gid(lon::Real, lat::Real) = floor.(Int, lat * 2) * 100 + floor.(Int, lon * 2)
+export lonlat2gid
 
 
 """
@@ -191,6 +193,7 @@ function gid2lonlat(x::Int)
     xs = string(x)
     return (parse(Float64, xs[4:5]) / 2 + 0.25, parse(Float64, xs[1:3]) / 2 + 0.25)
 end
+export gid2lonlat
 
 
 struct Strides
