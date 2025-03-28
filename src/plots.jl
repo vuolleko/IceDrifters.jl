@@ -12,6 +12,11 @@ const LATLIMS = (63, 66)
 export LONLIMS, LATLIMS
 
 
+"""Add some noise to data (for plotting of categories)."""
+jitter(data; scale=1.0) = data + (rand(length(data)) .- 0.5) * scale
+export jitter
+
+
 """Create polygon for the coastline of Bay of Bothnia."""
 function bob_coast()
     fin0 = GADM.get("FIN"; depth=0) |> DataFrame;
