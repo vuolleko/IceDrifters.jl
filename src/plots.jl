@@ -163,3 +163,79 @@ function plot_deform_split(df::AbstractDataFrame, splitcol::Symbol, splitval::Re
     return fig
 end
 export plot_deform_split
+
+
+function plot_icechart(date::TimeType, ds::NCDataset; xlims=LONLIMS, ylims=LATLIMS)
+    fig, ga = plot_bob_coast(xlims=xlims, ylims=ylims)
+    lon_inds = (searchsortedlast(ds[:lon], xlims[1]-1),
+        min(searchsortedfirst(ds[:lon], xlims[2]+1), length(ds[:lon])))
+    lat_inds = (searchsortedlast(ds[:lat], ylims[1]),
+        min(searchsortedfirst(ds[:lat], ylims[2]), length(ds[:lat])))
+    time_ind = searchsorted(ds[:TIME], date).stop
+    sithic = ds[ICECHART_COLS[:sithic]][range(lon_inds...),
+        range(lat_inds...), time_ind]
+    if !all(ismissing.(sithic))
+        plt = contourf!(ga, ds[:lon][range(lon_inds...)], ds[:lat][range(lat_inds...)],
+            sithic, colormap=:blues)
+        Colorbar(fig[1, 2], plt, label="Sea ice thickness [cm]")
+    end
+    return (fig, ga)
+end
+export plot_icechart
+
+
+function plot_icechart(date::TimeType; xlims=LONLIMS, ylims=LATLIMS)
+    ds = NCDataset(DATAPATH * "icecharts/icecharts$(string(year(date))).nc")
+    return plot_icechart(date, ds, xlims=xlims, ylims=ylims)
+end
+
+
+animate_icecharts(filename::AbstractString; framerate::Int=5, xlims=LONLIMS, ylims=LATLIMS) =
+    animate_icecharts([filename], framerate=framerate, xlims=xlims, ylims=ylims)
+
+
+function animate_icecharts(filenames::AbstractArray{<:AbstractString};
+        framerate::Int=5, xlims=LONLIMS, ylims=LATLIMS)
+    fig, ga = plot_bob_coast(xlims=xlims, ylims=ylims)
+    io = VideoStream(fig, framerate=framerate)
+    for fn in filenames
+        println("Processing $fn...")
+        ds = NCDataset(fn)
+        animate_icecharts!(io, ga, ds, framerate=framerate, xlims=xlims, ylims=ylims)
+    end
+    return io
+end
+
+
+function animate_icecharts!(io::VideoStream, ga::GeoAxis, ds::NCDataset;
+        framerate::Int=5, xlims=LONLIMS, ylims=LATLIMS)
+    lon_inds = (searchsortedlast(ds[:lon], xlims[1]-1),
+        min(searchsortedfirst(ds[:lon], xlims[2]+1), length(ds[:lon])))
+    lat_inds = (searchsortedlast(ds[:lat], ylims[1]),
+        min(searchsortedfirst(ds[:lat], ylims[2]), length(ds[:lat])))
+
+    plots = []
+    for time_ind = 1:length(ds[:TIME])
+        while length(plots) > 0
+            delete!(ga, pop!(plots))
+        end
+        sithic = ds[ICECHART_COLS[:sithic]][range(lon_inds...), range(lat_inds...), time_ind]
+        if !all(ismissing.(sithic))
+            plt = contourf!(ga, ds[:lon][range(lon_inds...)],
+                ds[:lat][range(lat_inds...)], sithic, colormap=:blues,
+                levels=range(0, 100, length=21))
+            push!(plots, plt)
+            ga.title = string(Date(ds[:TIME][time_ind]))
+        end
+        recordframe!(io)
+    end
+end
+
+
+function plot_buoys_icechart(date::TimeType, df::AbstractDataFrame)
+    df_ = subset(df, :timestamp => ByRow(t -> Date(t) == Date(date)))
+    fig, ga = plot_icechart(date)
+    scatter!(ga, df_.lon, df_.lat, color=:tomato, markersize=10)
+    fig
+end
+export plot_buoys_icechart

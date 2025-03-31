@@ -1,5 +1,7 @@
 module IceDrifters
 
+const DATAPATH = "data/"
+
 include("io.jl")
 include("utils.jl")
 include("buoy_calculations.jl")
